@@ -1,4 +1,6 @@
-# FinLLM
+# FinGPT-0.5
+***SINCE THIS PROJECT IS INSPIRED BY FINGPT PAPER BUT NOT AS GOOD AS FINGPT NAME AS FINGPT-0.5***
+
 A fine-tuned LLaMA model that provides detailed information about NASDAQ-listed stocks on demand.This model is trained on 7k Fianancial dataset to be able to answer your question.
 
 # Features
