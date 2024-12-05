@@ -1,3 +1,18 @@
+# Installation
+To get started with FinGPT-0.5, you can clone the repository and set it up using Docker.
+
+## Clone the Repository
+```
+git clone https://github.com/Abhay06102003/FinGPT-0.5.git
+cd FinGPT-0.5
+```
+
+## Run with Docker
+To run the application using Docker, use the following command:
+```
+docker-compose up
+```
+
 # FinGPT-0.5
 ***SINCE THIS PROJECT IS INSPIRED BY FINGPT PAPER BUT NOT AS GOOD AS FINGPT NAME AS FINGPT-0.5***
 

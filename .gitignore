@@ -1,0 +1,5 @@
+.env
+model/outputs
+model/old
+model/__pycache__
+model/trained_model
