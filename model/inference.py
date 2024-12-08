@@ -12,7 +12,7 @@ import pandas as pd
 from dotenv import load_dotenv
 load_dotenv()
 from peft import PeftModel
-from train import Config
+from model.train import Config
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
@@ -23,8 +23,9 @@ class Inference:
     def __init__(self):
         self.dl = Downloader(company_name='Abhay',email_address="Abhaychourasiya945@gmail.com")
         self.sec_api_key = os.getenv("sec_api")
-        self.model = AutoModelForCausalLM.from_pretrained(Config.SAVE_MODEL_FILE_NAME,load_in_4bit = True)
-        self.tokenizer = AutoTokenizer.from_pretrained(Config.SAVE_MODEL_FILE_NAME)
+        self.hf = os.getenv("HF_TOKEN")
+        self.tokenizer = None
+        self.model = None  # Initialize model as None
         self.prompt = """<|begin_of_text|><|start_header_id|>system<|end_header_id|>Summarize the following financial report. Include ALL key statistical data and metrics. Focus on:
 
                 1. Revenue and profit figures.
@@ -183,14 +184,14 @@ class Inference:
         db = FAISS.from_documents(split_data,embedding=embeddings)
         retriever = db.as_retriever()
         return retriever
-    def get_context(self,symbol,query,embeddings):
-        print(f"Retrieving context for {symbol} with query: {query}.")
-        retriever = self.get_vectorspace(symbol=symbol,embeddings = embeddings)
-        retrieved_doc = retriever.invoke(query)
-        context = []
-        for doc in retrieved_doc:
-            context.append(doc.page_content)
-        return context
+    # def get_context(self,symbol,query,embeddings):
+    #     print(f"Retrieving context for {symbol} with query: {query}.")
+    #     retriever = self.get_vectorspace(symbol=symbol,embeddings = embeddings)
+    #     retrieved_doc = retriever.invoke(query)
+    #     context = []
+    #     for doc in retrieved_doc:
+    #         context.append(doc.page_content)
+    #     return context
 
     def inference(self, context, question):
         print("Running inference.")
@@ -242,25 +243,40 @@ class Inference:
         for line in lines:
             print(line)
     
-    def main(self, symbol, question):
-        print(f"Running main with symbol: {symbol} and question: {question}.")
-        embedding = self.load_embeddings()
-        
-        # Create and store embeddings in the database
-        context = self.get_context(symbol=symbol, query=question, embeddings=embedding)
-        
-        # Clear CUDA cache to free up memory before loading the LLM
-        import torch
-        torch.cuda.empty_cache()
-        
-        # Load the LLM and perform inference
-        response = self.inference(context, question)  # Pass question directly
-        return self.answer_extract(response)
+    def load_model(self):
+        print("Loading model.")
+        self.tokenizer = AutoTokenizer.from_pretrained("Abhay06102003/Llama-3-FinanceAgent",token = self.hf)
+        model = AutoModelForCausalLM.from_pretrained("meta-llama/Meta-Llama-3-8B-Instruct", token=self.hf, load_in_4bit=True)
+        model = PeftModel.from_pretrained(model, "Abhay06102003/Llama-3-FinanceAgent")
+        self.model = model.merge_and_unload()  # Store the loaded model
+    
+    def get_context(self,question):
+        retrieved_doc = self.retriever.invoke(question)
+        context = ""
+        for doc in retrieved_doc:
+            context += doc.page_content
+            context += ' '
+        return context
 
-if __name__ == "__main__":
-    symbol = "AMZN"
-    question = "Give Predicted Potential of this company?"
-    inferences = Inference()
-    print(inferences.main(symbol=symbol,question=question))
+#     def main(self, symbol, question):
+#         print(f"Running main with symbol: {symbol} and question: {question}.")
+#         embedding = self.load_embeddings()
+        
+#         # Create and store embeddings in the database
+#         self.retriever = self.get_vectorspace(symbol=symbol, embeddings=embedding)
+        
+#         # Clear CUDA cache to free up memory before loading the LLM
+#         import torch
+#         torch.cuda.empty_cache()
+#         self.load_model()
+#         context = self.get_context(question)
+#         resp = self.inference(context=context,question=question)
+#         return self.format_output(self.answer_extract(resp))
+        
+# if __name__ == "__main__":
+#     symbol = "AMZN"
+#     question = "Give Predicted Potential of this company?"
+#     inferences = Inference()
+#     print(inferences.main(symbol=symbol,question=question))
     
     
