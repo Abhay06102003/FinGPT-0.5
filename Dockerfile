@@ -10,3 +10,4 @@ RUN pip install --upgrade pip && pip install -r req.txt
 # Copy the entire codebase into the container
 COPY . .
 
+CMD ["python", "app.py"]
