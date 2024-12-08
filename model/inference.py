@@ -18,6 +18,9 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.docstore.document import Document
 from sec_api import ExtractorApi,QueryApi
+import concurrent.futures
+import asyncio
+import torch
 
 class Inference:
     def __init__(self):
@@ -54,6 +57,8 @@ class Inference:
                 {}
                 <|eot_id|>
                 """
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        print(f"Using device: {self.device}")
         print("Initialized Inference class.")
     def formating(self,example):
         print("Running formating method.")
@@ -193,12 +198,8 @@ class Inference:
     #         context.append(doc.page_content)
     #     return context
 
-    def inference(self, context, question):
-        print("Running inference.")
-        # Clear CUDA cache to free up memory
-        import torch
-        torch.cuda.empty_cache()
-
+    async def async_inference(self, context, question):
+        print("Running async inference.")
         # Combine context and question for a single input
         input_text = self.prompt.format(question, context, '')
         inputs = self.tokenizer(
@@ -206,19 +207,41 @@ class Inference:
             return_tensors='pt'
         )
         
-        # Optionally switch to CPU if out of memory
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        inputs = inputs.to(device)
+        inputs = inputs.to(self.device)  # Use the detected device
         
         # Use no_grad to save memory
         with torch.no_grad():
-            output = self.model.generate(**inputs, max_new_tokens=1024, use_cache=True, pad_token_id=self.tokenizer.eos_token_id)  # Reduced max_new_tokens
+            output = self.model.generate(**inputs, max_new_tokens=1024, use_cache=True, pad_token_id=self.tokenizer.eos_token_id)
         response = self.tokenizer.batch_decode(output)
         
-        # Clear CUDA cache after inference
-        torch.cuda.empty_cache()
-        
         return response
+
+    def run_inference(self, context, question):
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(self.async_inference(context, question))
+
+    def inference(self, context, question):
+        print("Running inference.")
+        # Clear CUDA cache to free up memory if using GPU
+        if self.device == 'cuda':
+            torch.cuda.empty_cache()
+
+        # Use the run_inference method for async execution
+        return self.run_inference(context, question)
+
+    def batch_inference(self, contexts, questions):
+        results = []
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = {executor.submit(self.inference, context, question): (context, question) for context, question in zip(contexts, questions)}
+            for future in concurrent.futures.as_completed(futures):
+                context, question = futures[future]
+                try:
+                    result = future.result()
+                    results.append((context, question, result))
+                except Exception as e:
+                    print(f"Error processing context: {context}, question: {question} - {e}")
+        return results
+
     def answer_extract(self,text):
         print("Extracting answer from text.")
         text = text[0]
